@@ -4,3 +4,5 @@ target/
 *.iml
 .generated/
 .DS_Store
+
+generated/

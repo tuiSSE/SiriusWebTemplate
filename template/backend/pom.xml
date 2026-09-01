@@ -5,14 +5,15 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>__GROUP_ID__</groupId>
-    <artifactId>__ARTIFACT_ID__-metamodel-root</artifactId>
+    <artifactId>__PROJECT_NAME__-metamodel-root</artifactId>
     <version>__VERSION__</version>
-    <name>__ARTIFACT_ID__-metamodel-root</name>
-    <description>Generated EMF metamodel root for __ARTIFACT_ID__</description>
+    <name>__PROJECT_NAME__-metamodel-root</name>
+    <description>Generated EMF metamodel root for __PROJECT_NAME__</description>
     <packaging>pom</packaging>
 
     <modules>
-        <module>__ARTIFACT_ID__-metamodel</module>
-        <module>__ARTIFACT_ID__-metamodel-edit</module>
+        <module>__PROJECT_NAME__-metamodel</module>
+        <module>__PROJECT_NAME__-metamodel-edit</module>
+        <module>__PROJECT_NAME__</module>
     </modules>
 </project>
