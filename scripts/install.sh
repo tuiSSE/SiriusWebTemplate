@@ -59,7 +59,7 @@ echo "✅ Generated modules installed to local Maven repository"
 echo ""
 
 # Step 2: Copy the metamodel modules into their own packages/<PROJECT_NAME>/backend/ folder,
-# mirroring how packages/ktest/backend/ hosts ktest-metamodel and ktest-metamodel-edit.
+# mirroring how packages/<example>/backend/ hosts <example>-metamodel and <example>-metamodel-edit.
 SIRIUS_WEB_PACKAGES="$SIRIUS_WEB_ROOT/packages"
 METAMODEL_ROOT="$SIRIUS_WEB_PACKAGES/${PROJECT_NAME}/backend"
 
@@ -84,7 +84,7 @@ if [ -d "$GENERATED_BACKEND/${PROJECT_NAME}-metamodel-edit" ]; then
   cp -r "$GENERATED_BACKEND/${PROJECT_NAME}-metamodel-edit" "$TARGET_DIR"
 fi
 
-# Root aggregator pom for packages/<PROJECT_NAME>/backend/, same shape as packages/ktest/backend/pom.xml
+# Root aggregator pom for packages/<PROJECT_NAME>/backend/
 cat > "$METAMODEL_ROOT/pom.xml" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -114,10 +114,10 @@ if grep -q "<module>${PROJECT_NAME}/backend</module>" "$PACKAGES_POM"; then
   echo "  ✓ Module ${PROJECT_NAME}/backend already registered."
 else
   echo "  • Adding ${PROJECT_NAME}/backend to packages/pom.xml..."
-  sed -i "/<module>ktest\/backend<\/module>/a\ \t\t<module>${PROJECT_NAME}/backend</module>" "$PACKAGES_POM"
+  sed -i "/<module>sirius-web\/backend<\/module>/a\ \t\t<module>${PROJECT_NAME}/backend</module>" "$PACKAGES_POM"
 fi
 
-# Step 4: Copy the starter module into packages/starters/backend/, alongside ktest-starter
+# Step 4: Copy the starter module into packages/starters/backend/, alongside sirius-components-flow-starter
 SIRIUS_WEB_STARTERS="$SIRIUS_WEB_PACKAGES/starters/backend"
 if [ ! -d "$SIRIUS_WEB_STARTERS" ]; then
   echo "Error: sirius-web starters directory not found at $SIRIUS_WEB_STARTERS"
@@ -161,8 +161,8 @@ if grep -q "<module>$MODULE_NAME</module>" "$STARTER_PARENT_POM"; then
   echo "  ✓ Module $MODULE_NAME already registered."
 else
   echo "  • Adding $MODULE_NAME to parent pom.xml..."
-  # Add the new module after ktest-starter
-  sed -i "/<module>ktest-starter<\/module>/a\ \t\t<module>$MODULE_NAME</module>" "$STARTER_PARENT_POM"
+  # Add the new module after sirius-components-flow-starter
+  sed -i "/<module>sirius-components-flow-starter<\/module>/a\ \t\t<module>$MODULE_NAME</module>" "$STARTER_PARENT_POM"
 fi
 
 echo ""
@@ -174,10 +174,10 @@ if [ ! -f "$SIRIUS_WEB_APP_POM" ]; then
 elif grep -q "<artifactId>${PROJECT_NAME}</artifactId>" "$SIRIUS_WEB_APP_POM"; then
   echo "  ✓ Dependency on ${PROJECT_NAME} already registered."
 else
-  echo "  • Adding ${PROJECT_NAME} dependency after ktest-starter..."
+  echo "  • Adding ${PROJECT_NAME} dependency after sirius-components-flow-starter..."
   awk -v groupId="org.eclipse.sirius" -v artifactId="${PROJECT_NAME}" -v version="2026.7.3" '
     { print }
-    /<artifactId>ktest-starter<\/artifactId>/ { found=1 }
+    /<artifactId>sirius-components-flow-starter<\/artifactId>/ { found=1 }
     found && /<\/dependency>/ {
       print "\t\t<dependency>"
       print "\t\t\t<groupId>" groupId "</groupId>"
