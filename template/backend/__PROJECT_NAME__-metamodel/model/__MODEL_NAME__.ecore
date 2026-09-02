@@ -3,12 +3,10 @@
     xmlns:xmi="http://www.omg.org/XMI"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore"
-    name="__MODEL_NAME__"
+    name="model"
     nsURI="__ECORE_NS_URI__"
     nsPrefix="__MODEL_NAME__">
 
-    <eClassifiers xsi:type="ecore:EClass" name="Root">
-        <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="ecore:EString"/>
-    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="__MODEL_ROOT_CLASS__"/>
 
 </ecore:EPackage>

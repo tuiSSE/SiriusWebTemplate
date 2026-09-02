@@ -11,16 +11,6 @@
   <testsDirectory xsi:nil="true"/>
   <genPackages prefix="__MODEL_NAME__" basePackage="__PACKAGE_BASE__" disposableProviderFactory="true"
       ecorePackage="__MODEL_NAME__.ecore#/">
-    <genClasses ecoreClass="__MODEL_NAME__.ecore#//Mod">
-      <genFeatures property="None" children="true" createChild="true" ecoreFeature="ecore:EReference __MODEL_NAME__.ecore#//Mod/m1"/>
-      <genFeatures property="None" children="true" createChild="true" ecoreFeature="ecore:EReference __MODEL_NAME__.ecore#//Mod/m2"/>
-    </genClasses>
-    <genClasses ecoreClass="__MODEL_NAME__.ecore#//M1">
-      <genFeatures notify="false" createChild="false" propertySortChoices="true" ecoreFeature="ecore:EReference __MODEL_NAME__.ecore#//M1/m2"/>
-    </genClasses>
-    <genClasses ecoreClass="__MODEL_NAME__.ecore#//NamedElement">
-      <genFeatures createChild="false" ecoreFeature="ecore:EAttribute __MODEL_NAME__.ecore#//NamedElement/name"/>
-    </genClasses>
-    <genClasses ecoreClass="__MODEL_NAME__.ecore#//M2"/>
+    <genClasses ecoreClass="__MODEL_NAME__.ecore#//__MODEL_ROOT_CLASS__"/>
   </genPackages>
 </genmodel:GenModel>

@@ -19,6 +19,7 @@ MODEL_PACKAGE="${PACKAGE_BASE}.model"
 SERVICE_PACKAGE="${PACKAGE_BASE}.services"
 MODEL_NAME="${PROJECT_IDENTITY^}"
 SERVICE_CLASS="${MODEL_NAME}Service"
+MODEL_ROOT_CLASS="${MODEL_NAME}Model"
 
 ECORE_NS_URI="http://www.${GROUP_ID}/${PROJECT_NAME}"
 
@@ -31,12 +32,19 @@ fi
 mkdir -p "$ROOT_DIR/generated"
 cp -R "$TEMPLATE_DIR" "$TARGET_DIR"
 
+# Persist the chosen values so install.sh can reuse them without re-deriving anything
+cat > "$TARGET_DIR/.project-info" << EOF
+PROJECT_NAME=$PROJECT_NAME
+GROUP_ID=$GROUP_ID
+VERSION=$VERSION
+EOF
+
 PACKAGE_PATH="$(echo "$PACKAGE_BASE" | tr '.' '/')"
 MODEL_PACKAGE_PATH="$(echo "$MODEL_PACKAGE" | tr '.' '/')"
 SERVICE_PACKAGE_PATH="$(echo "$SERVICE_PACKAGE" | tr '.' '/')"
 
-find "$TARGET_DIR" -type f \( -name "*.java" -o -name "*.xml" -o -name "*.ecore" -o -name "*.md" -o -name "*.sh" -o -name ".project" -o -name ".classpath" -o -name "*.genmodel" \) -print0 | while IFS= read -r -d '' file; do
-  sed -i "s|__GROUP_ID__|$GROUP_ID|g; s|__PROJECT_NAME__|$PROJECT_NAME|g; s|__VERSION__|$VERSION|g; s|__PACKAGE_BASE__|$PACKAGE_BASE|g; s|__MODEL_PACKAGE__|$MODEL_PACKAGE|g; s|__SERVICE_PACKAGE__|$SERVICE_PACKAGE|g; s|__MODEL_NAME__|$MODEL_NAME|g; s|__SERVICE_CLASS__|$SERVICE_CLASS|g; s|__ECORE_NS_URI__|$ECORE_NS_URI|g; s|__PACKAGE_PATH__|$PACKAGE_PATH|g; s|__MODEL_PACKAGE_PATH__|$MODEL_PACKAGE_PATH|g; s|__SERVICE_PACKAGE_PATH__|$SERVICE_PACKAGE_PATH|g" "$file"
+find "$TARGET_DIR" -type f \( -name "*.java" -o -name "*.xml" -o -name "*.ecore" -o -name "*.md" -o -name "*.sh" -o -name ".project" -o -name ".classpath" -o -name "*.genmodel" -o -name "*.aird" \) -print0 | while IFS= read -r -d '' file; do
+  sed -i "s|__GROUP_ID__|$GROUP_ID|g; s|__PROJECT_NAME__|$PROJECT_NAME|g; s|__VERSION__|$VERSION|g; s|__PACKAGE_BASE__|$PACKAGE_BASE|g; s|__MODEL_PACKAGE__|$MODEL_PACKAGE|g; s|__SERVICE_PACKAGE__|$SERVICE_PACKAGE|g; s|__MODEL_ROOT_CLASS__|$MODEL_ROOT_CLASS|g; s|__MODEL_NAME__|$MODEL_NAME|g; s|__SERVICE_CLASS__|$SERVICE_CLASS|g; s|__ECORE_NS_URI__|$ECORE_NS_URI|g; s|__PACKAGE_PATH__|$PACKAGE_PATH|g; s|__MODEL_PACKAGE_PATH__|$MODEL_PACKAGE_PATH|g; s|__SERVICE_PACKAGE_PATH__|$SERVICE_PACKAGE_PATH|g" "$file"
 done
 
 if [ -d "$TARGET_DIR/backend/starter-template" ]; then
@@ -73,6 +81,10 @@ fi
 
 if [ -f "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/__MODEL_NAME__.genmodel" ]; then
   mv "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/__MODEL_NAME__.genmodel" "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/${MODEL_NAME}.genmodel"
+fi
+
+if [ -f "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/__MODEL_NAME__.aird" ]; then
+  mv "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/__MODEL_NAME__.aird" "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/${MODEL_NAME}.aird"
 fi
 
 if [ -f "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/example.ecore" ]; then

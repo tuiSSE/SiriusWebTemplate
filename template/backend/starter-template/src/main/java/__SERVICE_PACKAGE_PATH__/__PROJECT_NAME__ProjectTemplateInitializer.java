@@ -34,7 +34,7 @@ public class __PROJECT_NAME__ProjectTemplateInitializer implements ISemanticData
             var resource = new JSONResourceFactory().createResourceFromPath(UUID.randomUUID().toString());
             resource.eAdapters().add(new ResourceMetadataAdapter("__PROJECT_NAME__"));
             emfEditingContext.getDomain().getResourceSet().getResources().add(resource);
-            resource.getContents().add(__MODEL_NAME__Factory.eINSTANCE.create__MODEL_NAME__());
+            resource.getContents().add(__MODEL_NAME__Factory.eINSTANCE.create__MODEL_ROOT_CLASS__());
             this.editingContextPersistenceService.persist(cause, editingContext);
         }
     }

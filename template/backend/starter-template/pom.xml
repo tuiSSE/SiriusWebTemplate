@@ -25,5 +25,17 @@
             <artifactId>sirius-web-application</artifactId>
             <version>2026.7.3</version>
         </dependency>
+        <!-- Must match the group ID, artifact ID, and version declared in __PROJECT_NAME__-metamodel -->
+        <dependency>
+            <groupId>__GROUP_ID__</groupId>
+            <artifactId>__PROJECT_NAME__-metamodel</artifactId>
+            <version>__VERSION__</version>
+        </dependency>
+        <!-- Must match the group ID, artifact ID, and version declared in __PROJECT_NAME__-metamodel-edit -->
+        <dependency>
+            <groupId>__GROUP_ID__</groupId>
+            <artifactId>__PROJECT_NAME__-metamodel-edit</artifactId>
+            <version>__VERSION__</version>
+        </dependency>
     </dependencies>
 </project>
