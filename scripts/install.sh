@@ -166,7 +166,31 @@ else
 fi
 
 echo ""
-echo "Step 6: Building the metamodel and starter modules..."
+echo "Step 6: Registering ${PROJECT_NAME} as a dependency of the Sirius Web application..."
+
+SIRIUS_WEB_APP_POM="$SIRIUS_WEB_ROOT/packages/sirius-web/backend/sirius-web/pom.xml"
+if [ ! -f "$SIRIUS_WEB_APP_POM" ]; then
+  echo "  ⚠ $SIRIUS_WEB_APP_POM not found, skipping. You'll need to add the dependency manually so it ends up on the app's classpath."
+elif grep -q "<artifactId>${PROJECT_NAME}</artifactId>" "$SIRIUS_WEB_APP_POM"; then
+  echo "  ✓ Dependency on ${PROJECT_NAME} already registered."
+else
+  echo "  • Adding ${PROJECT_NAME} dependency after ktest-starter..."
+  awk -v groupId="org.eclipse.sirius" -v artifactId="${PROJECT_NAME}" -v version="2026.7.3" '
+    { print }
+    /<artifactId>ktest-starter<\/artifactId>/ { found=1 }
+    found && /<\/dependency>/ {
+      print "\t\t<dependency>"
+      print "\t\t\t<groupId>" groupId "</groupId>"
+      print "\t\t\t<artifactId>" artifactId "</artifactId>"
+      print "\t\t\t<version>" version "</version>"
+      print "\t\t</dependency>"
+      found=0
+    }
+  ' "$SIRIUS_WEB_APP_POM" > "$SIRIUS_WEB_APP_POM.tmp" && mv "$SIRIUS_WEB_APP_POM.tmp" "$SIRIUS_WEB_APP_POM"
+fi
+
+echo ""
+echo "Step 7: Building the metamodel and starter modules..."
 cd "$METAMODEL_ROOT"
 mvn -DskipTests clean install
 cd "$SIRIUS_WEB_STARTERS"

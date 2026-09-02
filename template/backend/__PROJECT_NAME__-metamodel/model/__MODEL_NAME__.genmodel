@@ -9,7 +9,7 @@
     editPluginID="__PROJECT_NAME__-metamodel-edit" operationReflection="true" importOrganizing="true">
   <foreignModel>__MODEL_NAME__.ecore</foreignModel>
   <testsDirectory xsi:nil="true"/>
-  <genPackages prefix="__MODEL_NAME__" basePackage="__PACKAGE_BASE__" disposableProviderFactory="true"
+  <genPackages prefix="__MODEL_NAME__" basePackage="__GROUP_ID__" disposableProviderFactory="true"
       ecorePackage="__MODEL_NAME__.ecore#/">
     <genClasses ecoreClass="__MODEL_NAME__.ecore#//__MODEL_ROOT_CLASS__"/>
   </genPackages>

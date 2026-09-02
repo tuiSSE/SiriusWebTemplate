@@ -13,6 +13,8 @@ import org.eclipse.sirius.web.domain.boundedcontexts.projectsemanticdata.service
 import org.springframework.data.jdbc.core.mapping.AggregateReference;
 import org.springframework.stereotype.Service;
 
+import __MODEL_PACKAGE__.__MODEL_NAME__Package;
+
 @Service
 public class __PROJECT_NAME__EditingContextInitializer implements IEditingContextProcessor {
 
@@ -26,6 +28,12 @@ public class __PROJECT_NAME__EditingContextInitializer implements IEditingContex
 
     @Override
     public void preProcess(IEditingContext editingContext) {
+        if (editingContext instanceof EditingContext emfEditingContext) {
+            // Register the metamodel package so its types can be resolved/deserialized and selected as domain types.
+            emfEditingContext.getDomain().getResourceSet().getPackageRegistry()
+                    .put(__MODEL_NAME__Package.eNS_URI, __MODEL_NAME__Package.eINSTANCE);
+        }
+
         var isProjectTemplate = new UUIDParser().parse(editingContext.getId())
                 .flatMap(semanticDataId -> this.projectSemanticDataSearchService.findBySemanticDataId(AggregateReference.to(semanticDataId)))
                 .map(ProjectSemanticData::getProject)
@@ -37,7 +45,7 @@ public class __PROJECT_NAME__EditingContextInitializer implements IEditingContex
                 .isPresent();
 
         if (isProjectTemplate && editingContext instanceof EditingContext emfEditingContext) {
-            // The generated starter is ready to register generated packages and views here.
+            // The generated starter is ready to register generated views here.
         }
     }
 }
