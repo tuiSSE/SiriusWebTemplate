@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
+/home/ralphm/projects/src/siriusWeb/sirius-web
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 GENERATED_DIR="$PROJECT_DIR/generated"
@@ -53,10 +53,10 @@ echo ""
 
 # Step 1: Build and install to local Maven repository
 echo "Step 1: Building and installing generated modules..."
-cd "$GENERATED_BACKEND/.."
-mvn -DskipTests clean install
-echo "✅ Generated modules installed to local Maven repository"
-echo ""
+# cd "$GENERATED_BACKEND/.."
+# mvn -DskipTests clean install
+## echo "✅ Generated modules installed to local Maven repository"
+## echo ""
 
 # Step 2: Copy the metamodel modules into their own packages/<PROJECT_NAME>/backend/ folder,
 # mirroring how packages/<example>/backend/ hosts <example>-metamodel and <example>-metamodel-edit.
@@ -191,10 +191,10 @@ fi
 
 echo ""
 echo "Step 7: Building the metamodel and starter modules..."
-cd "$METAMODEL_ROOT"
-mvn -DskipTests clean install
-cd "$SIRIUS_WEB_STARTERS"
-mvn -DskipTests clean install
+# cd "$METAMODEL_ROOT"
+# mvn -DskipTests clean install
+# cd "$SIRIUS_WEB_STARTERS"
+# mvn -DskipTests clean install
 
 echo ""
 echo "✅ Installation complete!"
