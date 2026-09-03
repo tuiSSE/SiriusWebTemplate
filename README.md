@@ -10,6 +10,9 @@ The generated files can then be integrated into a Sirius Web development environ
 
 After the installation and build process has been completed, the custom metamodel can be used within Sirius Web for the creation and handling of domain-specific models.
 
+**Acknowledgment**
+This project is based on a tutorial project created and provided by [Théo Giraudet](https://www.linkedin.com/in/theo-giraudet/).
+
 ## Repository workflow
 
 1. Fork this template.
@@ -40,15 +43,14 @@ After running `./scripts/generate.sh`, the generated project includes:
    ```
    In Eclipse: File → Import → Existing Projects into Workspace, select the folder above.
 
-2. **Generate the metamodel code:**
-   - In the Model Explorer, right-click `<MODEL_NAME>.genmodel`
-   - Select "Generate Model Code"
-   - The generated Java classes are created in `src/main/java/<package>/`
-   - Generated edit classes appear in a new `<PROJECT_NAME>-metamodel-edit` module
+The ecore package's `name` is set to the lowercase project identity (not a generic `model` segment), so the domain namespace shown in Sirius Web's type selection dialogs is `<project-identity>::<ClassName>` (e.g. `mytest3::MyTest3Model`), matching the convention used by `ktest`/`flow`.
 
-3. **The generation creates:**
-   - `<PROJECT_NAME>-metamodel/src/main/java/<package>` — Metamodel classes (ECore model as Java)
-   - `<PROJECT_NAME>-metamodel-edit/src/main/java/<package>` — Edit support (display names, icons, etc.)
+2. **Generate the metamodel code:**
+   - reload the .genmodel file: In the Model Explorer, right-click `<MODEL_NAME>.genmodel` "Reload..."
+   - Generate maven plugin code: open  .genmodel file, right-click (or menu/Generator) "Generate All"
+     - The generation creates:
+			 - `<PROJECT_NAME>-metamodel/src/main/java/<package>` — Metamodel classes (ECore model as Java)
+			 - `<PROJECT_NAME>-metamodel-edit/src/main/java/<package>` — Edit support (display names, icons, etc.)
 
 Both modules are Maven projects with proper `pom.xml` files ready for integration with Sirius Web.
 
@@ -59,7 +61,7 @@ Both modules are Maven projects with proper `pom.xml` files ready for integratio
 Once you've generated your extension and (optionally) customized the EMF model, integrate it into Sirius Web:
 
 ### Prerequisites
-- Sirius Web must be checked out locally
+- Sirius Web has been checked out and can be built locally.
 - Maven 3.9+ must be installed
 
 ### Installation steps
@@ -73,12 +75,12 @@ cd /path/to/generated/project
 
 The script prompts for the path to your sirius-web checkout (or set `SIRIUS_WEB_ROOT` beforehand to skip the prompt), then:
 1. Reads the project name/group/version from `.project-info` (written by `generate.sh`)
-2. Builds the generated modules and installs them to your local Maven repository (`.m2/repository/`)
-3. Copies `<PROJECT_NAME>-metamodel` and `<PROJECT_NAME>-metamodel-edit` to `sirius-web/packages/<PROJECT_NAME>/backend/` (same layout as `packages/ktest/backend/`), generating an aggregator `pom.xml`
-4. Registers `<PROJECT_NAME>/backend` in `sirius-web/packages/pom.xml`
-5. Copies the starter module to `sirius-web/packages/starters/backend/<PROJECT_NAME>-starter` and updates its parent `pom.xml` to reference `sirius-web-parent`
-6. Registers the starter module in `sirius-web/packages/starters/backend/pom.xml`
-7. Builds both the metamodel root and the starters module to verify integration
+2. Copies `<PROJECT_NAME>-metamodel` and `<PROJECT_NAME>-metamodel-edit` to `sirius-web/packages/<PROJECT_NAME>/backend/` (same layout as `packages/ktest/backend/`), generating an aggregator `pom.xml`
+3. Registers `<PROJECT_NAME>/backend` in `sirius-web/packages/pom.xml`
+4. Copies the starter module to `sirius-web/packages/starters/backend/<PROJECT_NAME>-starter` and updates its parent `pom.xml` to reference `sirius-web-parent`
+5. Registers the starter module in `sirius-web/packages/starters/backend/pom.xml`
+
+The final sirius-web build, which includes both the metamodel and the starter module, must then be performed manually.
 
 To skip the interactive prompt, set the path beforehand:
 ```bash
@@ -90,10 +92,12 @@ export SIRIUS_WEB_ROOT=/path/to/sirius-web
 
 After `install.sh` completes:
 
+Build Sirius-Web according to the build instructions (see [https://github.com/eclipse-sirius/sirius-web](https://github.com/eclipse-sirius/sirius-web)).
+
+e.g.: 
 ```bash
 cd /path/to/sirius-web
 mvn -DskipTests clean package
-./docker-compose up  # or use your preferred launch method
 ```
 
 Your custom extension will now be loaded by Sirius Web on startup through Spring's auto-discovery mechanism.
@@ -161,19 +165,10 @@ The starter module contains `@Service` classes that Sirius Web auto-discovers vi
 
 When Sirius Web starts, Spring loads all `@Service` beans, and the AQL interpreter has access to your custom Java methods.
 
-### EMF model and code generation
-
-The `<PROJECT_NAME>-metamodel` module contains your `.ecore` and `.genmodel` files:
-
-1. Edit `<MODEL_NAME>.ecore` to define your metamodel structure
-2. Right-click `<MODEL_NAME>.genmodel` in Eclipse → "Generate Model Code"
-3. EMF generates `<PROJECT_NAME>-metamodel/src/main/java/<MODEL_PACKAGE>/`
-4. EMF also creates `<PROJECT_NAME>-metamodel-edit/` with editor support classes
-
-The ecore package's `name` is set to the lowercase project identity (not a generic `model` segment), so the domain namespace shown in Sirius Web's type selection dialogs is `<project-identity>::<ClassName>` (e.g. `mytest3::MyTest3Model`), matching the convention used by `ktest`/`flow`.
-
-Both generated modules are Maven projects, so they integrate seamlessly with Sirius Web's build.
-
 ## Notes
 
 This template intentionally keeps the integration flow aligned with the Maven-based Sirius Web starter pattern and does not depend on Docker startup hacks.
+
+### Furtur Changes
+- metamodel update cycle (clean & rebuild and update)
+- include images and icons
