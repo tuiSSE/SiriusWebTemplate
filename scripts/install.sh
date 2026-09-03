@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-/home/ralphm/projects/src/siriusWeb/sirius-web
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 GENERATED_DIR="$PROJECT_DIR/generated"
