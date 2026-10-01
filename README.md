@@ -73,6 +73,7 @@ cd /path/to/generated/project
 ./scripts/install.sh
 ```
 
+<<<<<<< Updated upstream
 The script prompts for the path to your sirius-web checkout (or set `SIRIUS_WEB_ROOT` beforehand to skip the prompt), then:
 1. Reads the project name/group/version from `.project-info` (written by `generate.sh`)
 2. Copies `<PROJECT_NAME>-metamodel` and `<PROJECT_NAME>-metamodel-edit` to `sirius-web/packages/<PROJECT_NAME>/backend/` (same layout as `packages/ktest/backend/`), generating an aggregator `pom.xml`
@@ -81,12 +82,30 @@ The script prompts for the path to your sirius-web checkout (or set `SIRIUS_WEB_
 5. Registers the starter module in `sirius-web/packages/starters/backend/pom.xml`
 
 The final sirius-web build, which includes both the metamodel and the starter module, must then be performed manually.
+=======
+`install.sh` always installs whichever project `generate.sh` marked as current (tracked in
+`generated/.current-project`) — it does not guess or prompt you to choose. The decision of which
+project is current, and whether a previous one should be deleted, is made once, in `generate.sh`
+(see "Cleaning up generated extensions" below).
+>>>>>>> Stashed changes
 
-To skip the interactive prompt, set the path beforehand:
+The script reads the sirius-web checkout path, and the project name/group/version, from
+`.project-info` (both written by `generate.sh`, which is the only script that asks for the
+sirius-web path), then:
+1. Builds the generated modules and installs them to your local Maven repository (`.m2/repository/`)
+2. Copies `<PROJECT_NAME>-metamodel` and `<PROJECT_NAME>-metamodel-edit` to `sirius-web/packages/<PROJECT_NAME>/backend/` (same layout as other `packages/<example>/backend/` extensions), generating an aggregator `pom.xml`
+3. Registers `<PROJECT_NAME>/backend` in `sirius-web/packages/pom.xml`
+4. Copies the starter module to `sirius-web/packages/starters/backend/<PROJECT_NAME>-starter` and updates its parent `pom.xml` to reference `sirius-web-parent`
+5. Registers the starter module in `sirius-web/packages/starters/backend/pom.xml`
+6. Builds both the metamodel root and the starters module to verify integration
+
+To skip the interactive sirius-web path prompt in `generate.sh`, set the path beforehand:
 ```bash
 export SIRIUS_WEB_ROOT=/path/to/sirius-web
+./scripts/generate.sh
 ./scripts/install.sh
 ```
+
 
 ### Building and running Sirius Web with your extension
 
@@ -101,6 +120,32 @@ mvn -DskipTests clean package
 ```
 
 Your custom extension will now be loaded by Sirius Web on startup through Spring's auto-discovery mechanism.
+
+## Cleaning up generated extensions
+
+When you run `generate.sh`, it:
+1. Writes the new project to `generated/<PROJECT_NAME>` (asking first if that directory already exists).
+2. Checks `generated/.current-project` for the previously current project; if it's a different
+   name and still present, you're asked whether to delete it, and separately whether to also
+   uninstall it from a sirius-web checkout (undoing `install.sh`'s changes there). Both removals
+   are delegated to `./scripts/clean.sh`, so the sirius-web side never gets left out of sync.
+3. Marks the new project as current in `generated/.current-project`, which `install.sh` always
+   installs without any further prompting or guessing.
+
+This keeps the workflow to: generate → work with the current project via `install.sh` → generate
+the next one (optionally cleaning up the old one, including its sirius-web installation, when
+asked). You can also run the cleanup manually at any time with `./scripts/clean.sh`:
+
+```bash
+./scripts/clean.sh myOldExtension         # remove generated/myOldExtension
+./scripts/clean.sh --all                  # remove everything under generated/
+./scripts/clean.sh myOldExtension --uninstall   # also undo its install.sh changes in sirius-web
+./scripts/clean.sh --all --yes            # skip confirmation prompts
+```
+
+`--uninstall` removes `packages/<PROJECT_NAME>` and `packages/starters/backend/<PROJECT_NAME>-starter`
+from the sirius-web checkout (`SIRIUS_WEB_ROOT` env var or prompt) and un-registers the corresponding
+`<module>` / `<dependency>` entries added by `install.sh`.
 
 ## Placeholder variables
 
@@ -165,6 +210,22 @@ The starter module contains `@Service` classes that Sirius Web auto-discovers vi
 
 When Sirius Web starts, Spring loads all `@Service` beans, and the AQL interpreter has access to your custom Java methods.
 
+<<<<<<< Updated upstream
+=======
+### EMF model and code generation
+
+The `<PROJECT_NAME>-metamodel` module contains your `.ecore` and `.genmodel` files:
+
+1. Edit `<MODEL_NAME>.ecore` to define your metamodel structure
+2. Right-click `<MODEL_NAME>.genmodel` in Eclipse → "Generate Model Code"
+3. EMF generates `<PROJECT_NAME>-metamodel/src/main/java/<MODEL_PACKAGE>/`
+4. EMF also creates `<PROJECT_NAME>-metamodel-edit/` with editor support classes
+
+The ecore package's `name` is set to the lowercase project identity (not a generic `model` segment), so the domain namespace shown in Sirius Web's type selection dialogs is `<project-identity>::<ClassName>` (e.g. `myextension::MyExtensionModel`), matching the convention used by other extensions.
+
+Both generated modules are Maven projects, so they integrate seamlessly with Sirius Web's build.
+
+>>>>>>> Stashed changes
 ## Notes
 
 This template intentionally keeps the integration flow aligned with the Maven-based Sirius Web starter pattern and does not depend on Docker startup hacks.

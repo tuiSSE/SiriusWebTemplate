@@ -4,14 +4,39 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEMPLATE_DIR="$ROOT_DIR/template"
 
-read -p "Project name [my-sirius-extension]: " PROJECT_NAME
-PROJECT_NAME="${PROJECT_NAME:-my-sirius-extension}"
+# Reuse the sirius-web path from the previously generated (current) project, so repeated
+# runs (e.g. after a restart) don't require retyping it.
+CURRENT_MARKER="$ROOT_DIR/generated/.current-project"
+if [ -z "${SIRIUS_WEB_ROOT:-}" ] && [ -f "$CURRENT_MARKER" ]; then
+  PROJECT_INFO="$ROOT_DIR/generated/$(cat "$CURRENT_MARKER")/.project-info"
+  if [ -f "$PROJECT_INFO" ]; then
+    SIRIUS_WEB_ROOT="$(grep '^SIRIUS_WEB_ROOT=' "$PROJECT_INFO" | cut -d= -f2-)"
+  fi
+fi
+
+read -p "Project name [my_extension]: " PROJECT_NAME
+PROJECT_NAME="${PROJECT_NAME:-my_extension}"
+# Folder/package names derived from this must start lowercase.
+PROJECT_NAME="${PROJECT_NAME,}"
 
 read -p "Group ID [example.com]: " GROUP_ID
 GROUP_ID="${GROUP_ID:-example.com}"
 
 read -p "Version [0.0.1-SNAPSHOT]: " VERSION
 VERSION="${VERSION:-0.0.1-SNAPSHOT}"
+
+# Ask for the sirius-web location unless already known (env var or previous run); store it
+# so install.sh (and clean.sh --uninstall) can reuse it without asking again.
+SIRIUS_WEB_ROOT="${SIRIUS_WEB_ROOT:-}"
+if [ -z "$SIRIUS_WEB_ROOT" ]; then
+  read -rp "Path to your sirius-web checkout: " SIRIUS_WEB_ROOT
+fi
+SIRIUS_WEB_ROOT="$(cd "$SIRIUS_WEB_ROOT" 2>/dev/null && pwd || true)"
+if [ -z "$SIRIUS_WEB_ROOT" ] || [ ! -f "$SIRIUS_WEB_ROOT/packages/pom.xml" ]; then
+  echo "Error: '$SIRIUS_WEB_ROOT' does not look like a sirius-web checkout (packages/pom.xml not found)."
+  exit 1
+fi
+export SIRIUS_WEB_ROOT
 
 PROJECT_IDENTITY="${PROJECT_NAME//[-_. ]/}"
 PACKAGE_BASE="${GROUP_ID}.${PROJECT_IDENTITY,,}"
@@ -24,10 +49,36 @@ MODEL_ROOT_CLASS="${MODEL_NAME}Model"
 
 ECORE_NS_URI="http://www.${GROUP_ID}/${PROJECT_NAME}"
 
+CLEAN_SCRIPT="$ROOT_DIR/scripts/clean.sh"
+
 TARGET_DIR="$ROOT_DIR/generated/$PROJECT_NAME"
 if [ -d "$TARGET_DIR" ]; then
-  echo "Target directory already exists: $TARGET_DIR"
-  exit 1
+  read -rp "Target directory already exists: $TARGET_DIR. Remove it and regenerate? [y/N] " REMOVE_EXISTING
+  if [[ "$REMOVE_EXISTING" =~ ^[Yy]$ ]]; then
+    UNINSTALL_FLAG=""
+    read -rp "Also clean its installation from a sirius-web checkout? [y/N] " UNINSTALL_EXISTING
+    [[ "$UNINSTALL_EXISTING" =~ ^[Yy]$ ]] && UNINSTALL_FLAG="--uninstall"
+    "$CLEAN_SCRIPT" "$PROJECT_NAME" --yes $UNINSTALL_FLAG
+  else
+    echo "Aborted: $TARGET_DIR already exists."
+    exit 1
+  fi
+fi
+
+# Switching the "current" project away from a different previous one: offer to remove it
+# (and its sirius-web installation, via clean.sh) so stale extensions don't linger.
+if [ -f "$CURRENT_MARKER" ]; then
+  PREVIOUS_PROJECT="$(cat "$CURRENT_MARKER")"
+  PREVIOUS_DIR="$ROOT_DIR/generated/$PREVIOUS_PROJECT"
+  if [ "$PREVIOUS_PROJECT" != "$PROJECT_NAME" ] && [ -d "$PREVIOUS_DIR" ]; then
+    read -rp "Previous current project '$PREVIOUS_PROJECT' found. Remove generated/$PREVIOUS_PROJECT? [y/N] " REMOVE_PREVIOUS
+    if [[ "$REMOVE_PREVIOUS" =~ ^[Yy]$ ]]; then
+      UNINSTALL_FLAG=""
+      read -rp "Also clean '$PREVIOUS_PROJECT' from a sirius-web checkout (undoes install.sh)? [y/N] " UNINSTALL_PREVIOUS
+      [[ "$UNINSTALL_PREVIOUS" =~ ^[Yy]$ ]] && UNINSTALL_FLAG="--uninstall"
+      "$CLEAN_SCRIPT" "$PREVIOUS_PROJECT" --yes $UNINSTALL_FLAG
+    fi
+  fi
 fi
 
 mkdir -p "$ROOT_DIR/generated"
@@ -38,7 +89,12 @@ cat > "$TARGET_DIR/.project-info" << EOF
 PROJECT_NAME=$PROJECT_NAME
 GROUP_ID=$GROUP_ID
 VERSION=$VERSION
+SIRIUS_WEB_ROOT=$SIRIUS_WEB_ROOT
 EOF
+
+# Record this as the current project so install.sh always installs it, without
+# having to guess among any other projects left under generated/.
+echo "$PROJECT_NAME" > "$CURRENT_MARKER"
 
 PACKAGE_PATH="$(echo "$PACKAGE_BASE" | tr '.' '/')"
 MODEL_PACKAGE_PATH="$(echo "$MODEL_PACKAGE" | tr '.' '/')"

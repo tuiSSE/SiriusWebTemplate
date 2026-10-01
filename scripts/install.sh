@@ -5,28 +5,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 GENERATED_DIR="$PROJECT_DIR/generated"
 
-# Ask for the sirius-web location unless already provided via env var
-SIRIUS_WEB_ROOT="${SIRIUS_WEB_ROOT:-}"
-if [ -z "$SIRIUS_WEB_ROOT" ]; then
-  read -rp "Path to your sirius-web checkout: " SIRIUS_WEB_ROOT
-fi
-SIRIUS_WEB_ROOT="$(cd "$SIRIUS_WEB_ROOT" 2>/dev/null && pwd || true)"
-
-# sirius-web structure has pom.xml in packages/, not at the repo root
-if [ -z "$SIRIUS_WEB_ROOT" ] || [ ! -f "$SIRIUS_WEB_ROOT/packages/pom.xml" ]; then
-  echo "Error: '$SIRIUS_WEB_ROOT' does not look like a sirius-web checkout (packages/pom.xml not found)."
+# Install the project generate.sh marked as current — that script owns the
+# decision of which generated project is "current" and whether old ones are removed.
+if [ ! -d "$GENERATED_DIR" ] || [ ! -f "$GENERATED_DIR/.current-project" ]; then
+  echo "Error: No current generated project found in $GENERATED_DIR"
+  echo "Please run './scripts/generate.sh' first to generate an extension."
   exit 1
 fi
 
-# Find the latest generated project
-LATEST_GENERATED=""
-if [ -d "$GENERATED_DIR" ]; then
-  LATEST_GENERATED=$(find "$GENERATED_DIR" -maxdepth 1 -type d ! -name ".*" | sort | tail -1)
-fi
-
-if [ -z "$LATEST_GENERATED" ] || [ ! -d "$LATEST_GENERATED" ]; then
-  echo "Error: No generated backend modules found in $GENERATED_DIR"
-  echo "Please run './scripts/generate.sh' first to generate an extension."
+LATEST_GENERATED="$GENERATED_DIR/$(cat "$GENERATED_DIR/.current-project")"
+if [ ! -d "$LATEST_GENERATED" ]; then
+  echo "Error: Current project '$(cat "$GENERATED_DIR/.current-project")' not found under $GENERATED_DIR"
+  echo "Please run './scripts/generate.sh' again."
   exit 1
 fi
 
@@ -36,14 +26,24 @@ if [ ! -d "$GENERATED_BACKEND" ]; then
   exit 1
 fi
 
-# Reuse the project name/group/version chosen during generate.sh
+# Reuse the project name/group/version/sirius-web path chosen during generate.sh
 PROJECT_INFO="$LATEST_GENERATED/.project-info"
 if [ ! -f "$PROJECT_INFO" ]; then
   echo "Error: $PROJECT_INFO not found. Please regenerate the project with './scripts/generate.sh'."
   exit 1
 fi
+# An already-set SIRIUS_WEB_ROOT env var takes precedence over the stored value.
+ENV_SIRIUS_WEB_ROOT="${SIRIUS_WEB_ROOT:-}"
 # shellcheck disable=SC1090
 source "$PROJECT_INFO"
+[ -n "$ENV_SIRIUS_WEB_ROOT" ] && SIRIUS_WEB_ROOT="$ENV_SIRIUS_WEB_ROOT"
+
+# sirius-web structure has pom.xml in packages/, not at the repo root
+if [ -z "${SIRIUS_WEB_ROOT:-}" ] || [ ! -f "$SIRIUS_WEB_ROOT/packages/pom.xml" ]; then
+  echo "Error: '$SIRIUS_WEB_ROOT' does not look like a sirius-web checkout (packages/pom.xml not found)."
+  echo "Please regenerate the project with './scripts/generate.sh' and provide a valid path."
+  exit 1
+fi
 
 echo "Found generated project: $PROJECT_NAME"
 echo "  Location: $GENERATED_BACKEND"
