@@ -4,37 +4,38 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 GENERATED_DIR="$PROJECT_DIR/generated"
+GENERATION_INFO="$GENERATED_DIR/.generation-info"
 
 usage() {
   cat << EOF
-Usage: $0 [PROJECT_NAME ...] [--all] [--uninstall] [--yes]
+Usage: $0 [PROJECT_NAME ...] [--all] [--no-uninstall] [--yes]
 
 Removes stale generated extensions under generated/ so install.sh can no longer
-pick the wrong project by accident.
+pick the wrong project by accident. Also undoes install.sh's changes in the sirius-web
+checkout by default (requires SIRIUS_WEB_ROOT env var, generated/.generation-info, or prompt).
 
-  PROJECT_NAME   One or more project names under generated/ to remove.
-  --all          Remove every project under generated/.
-  --uninstall    Also undo install.sh's changes in the sirius-web checkout
-                 (requires SIRIUS_WEB_ROOT env var or prompt), for each
-                 project being removed.
-  --yes          Do not ask for confirmation.
+  PROJECT_NAME    One or more project names under generated/ to remove.
+  --all           Remove every project under generated/.
+  --no-uninstall  Only remove generated/<name>, leave the sirius-web checkout untouched.
+  --yes           Do not ask for confirmation.
 
 Examples:
   $0 --all
   $0 myExtension anotherExtension
-  $0 --all --uninstall
+  $0 --all --no-uninstall
 EOF
 }
 
 ALL=false
-UNINSTALL=false
+UNINSTALL=true
 ASSUME_YES=false
 TARGETS=()
 
 for arg in "$@"; do
   case "$arg" in
     --all) ALL=true ;;
-    --uninstall) UNINSTALL=true ;;
+    --uninstall) UNINSTALL=true ;; # kept for backwards compatibility, it's the default now
+    --no-uninstall) UNINSTALL=false ;;
     --yes|-y) ASSUME_YES=true ;;
     -h|--help) usage; exit 0 ;;
     *) TARGETS+=("$arg") ;;
@@ -75,9 +76,15 @@ uninstall_from_sirius_web() {
 
   echo "  • Removing ${packages_dir}/${project_name}"
   rm -rf "${packages_dir:?}/${project_name}"
+  if [ -e "${packages_dir}/${project_name}" ]; then
+    echo "  ⚠ ${packages_dir}/${project_name} could not be removed (check permissions / open file handles)."
+  fi
 
   echo "  • Removing ${packages_dir}/starters/backend/${project_name}-starter"
   rm -rf "${packages_dir:?}/starters/backend/${project_name}-starter"
+  if [ -e "${packages_dir}/starters/backend/${project_name}-starter" ]; then
+    echo "  ⚠ ${packages_dir}/starters/backend/${project_name}-starter could not be removed (check permissions / open file handles)."
+  fi
 
   if [ -f "$packages_pom" ]; then
     echo "  • Unregistering module from packages/pom.xml"
@@ -110,6 +117,8 @@ uninstall_from_sirius_web() {
   fi
 }
 
+REMOVED_COUNT=0
+
 for name in "${TARGETS[@]}"; do
   TARGET_DIR="$GENERATED_DIR/$name"
   if [ ! -d "$TARGET_DIR" ]; then
@@ -124,21 +133,28 @@ for name in "${TARGETS[@]}"; do
 
   if [ "$UNINSTALL" = true ]; then
     GROUP_ID=""
-    SIRIUS_WEB_ROOT="${SIRIUS_WEB_ROOT:-}"
     # shellcheck disable=SC1090
     [ -f "$TARGET_DIR/.project-info" ] && source "$TARGET_DIR/.project-info"
+    # SIRIUS_WEB_ROOT is shared across all projects: env var wins, else generated/.generation-info.
+    if [ -z "${SIRIUS_WEB_ROOT:-}" ] && [ -f "$GENERATION_INFO" ]; then
+      SIRIUS_WEB_ROOT="$(grep '^SIRIUS_WEB_ROOT=' "$GENERATION_INFO" | cut -d= -f2-)"
+    fi
     echo "Uninstalling $name from sirius-web..."
     uninstall_from_sirius_web "$name" "$GROUP_ID"
   fi
 
   echo "Removing generated/$name"
   rm -rf "$TARGET_DIR"
+  REMOVED_COUNT=$((REMOVED_COUNT + 1))
 
-  CURRENT_MARKER="$GENERATED_DIR/.current-project"
-  if [ -f "$CURRENT_MARKER" ] && [ "$(cat "$CURRENT_MARKER")" = "$name" ]; then
-    rm -f "$CURRENT_MARKER"
+  if [ -f "$GENERATION_INFO" ] && [ "$(grep '^PROJECT_NAME=' "$GENERATION_INFO" | cut -d= -f2-)" = "$name" ]; then
+    rm -f "$GENERATION_INFO"
   fi
 done
 
 echo ""
-echo "✅ Clean complete."
+if [ "$REMOVED_COUNT" -eq 0 ]; then
+  echo "Nothing was removed."
+  exit 1
+fi
+echo "✅ Clean complete ($REMOVED_COUNT removed)."

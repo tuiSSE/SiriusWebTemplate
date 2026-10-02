@@ -4,18 +4,46 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 GENERATED_DIR="$PROJECT_DIR/generated"
+GENERATION_INFO="$GENERATED_DIR/.generation-info"
+
+# If invoked from inside a specific generated/<name> project that isn't the current
+# one, offer to switch "current" to it instead of silently installing something else.
+CWD_REAL="$(pwd -P)"
+if [ -d "$GENERATED_DIR" ]; then
+  case "$CWD_REAL" in
+    "$GENERATED_DIR"/*)
+      CWD_PROJECT="${CWD_REAL#"$GENERATED_DIR"/}"
+      CWD_PROJECT="${CWD_PROJECT%%/*}"
+      STORED_CURRENT=""
+      [ -f "$GENERATION_INFO" ] && STORED_CURRENT="$(grep '^PROJECT_NAME=' "$GENERATION_INFO" | cut -d= -f2-)"
+      if [ -n "$CWD_PROJECT" ] && [ "$CWD_PROJECT" != "$STORED_CURRENT" ] && [ -f "$GENERATED_DIR/$CWD_PROJECT/.project-info" ]; then
+        read -rp "You're inside generated/$CWD_PROJECT, but the current project is '${STORED_CURRENT:-none}'. Set '$CWD_PROJECT' as current? [y/N] " SWITCH_CURRENT
+        if [[ "$SWITCH_CURRENT" =~ ^[Yy]$ ]]; then
+          # SIRIUS_WEB_ROOT is shared across all generated projects, so just keep the existing one.
+          EXISTING_SIRIUS_WEB_ROOT=""
+          [ -f "$GENERATION_INFO" ] && EXISTING_SIRIUS_WEB_ROOT="$(grep '^SIRIUS_WEB_ROOT=' "$GENERATION_INFO" | cut -d= -f2-)"
+          cat > "$GENERATION_INFO" << EOF
+PROJECT_NAME=$CWD_PROJECT
+SIRIUS_WEB_ROOT=$EXISTING_SIRIUS_WEB_ROOT
+EOF
+        fi
+      fi
+      ;;
+  esac
+fi
 
 # Install the project generate.sh marked as current — that script owns the
 # decision of which generated project is "current" and whether old ones are removed.
-if [ ! -d "$GENERATED_DIR" ] || [ ! -f "$GENERATED_DIR/.current-project" ]; then
+if [ ! -d "$GENERATED_DIR" ] || [ ! -f "$GENERATION_INFO" ]; then
   echo "Error: No current generated project found in $GENERATED_DIR"
   echo "Please run './scripts/generate.sh' first to generate an extension."
   exit 1
 fi
 
-LATEST_GENERATED="$GENERATED_DIR/$(cat "$GENERATED_DIR/.current-project")"
+CURRENT_PROJECT_NAME="$(grep '^PROJECT_NAME=' "$GENERATION_INFO" | cut -d= -f2-)"
+LATEST_GENERATED="$GENERATED_DIR/$CURRENT_PROJECT_NAME"
 if [ ! -d "$LATEST_GENERATED" ]; then
-  echo "Error: Current project '$(cat "$GENERATED_DIR/.current-project")' not found under $GENERATED_DIR"
+  echo "Error: Current project '$CURRENT_PROJECT_NAME' not found under $GENERATED_DIR"
   echo "Please run './scripts/generate.sh' again."
   exit 1
 fi
@@ -26,17 +54,19 @@ if [ ! -d "$GENERATED_BACKEND" ]; then
   exit 1
 fi
 
-# Reuse the project name/group/version/sirius-web path chosen during generate.sh
+# Reuse the project name/group/version chosen during generate.sh
 PROJECT_INFO="$LATEST_GENERATED/.project-info"
 if [ ! -f "$PROJECT_INFO" ]; then
   echo "Error: $PROJECT_INFO not found. Please regenerate the project with './scripts/generate.sh'."
   exit 1
 fi
-# An already-set SIRIUS_WEB_ROOT env var takes precedence over the stored value.
-ENV_SIRIUS_WEB_ROOT="${SIRIUS_WEB_ROOT:-}"
 # shellcheck disable=SC1090
 source "$PROJECT_INFO"
-[ -n "$ENV_SIRIUS_WEB_ROOT" ] && SIRIUS_WEB_ROOT="$ENV_SIRIUS_WEB_ROOT"
+# SIRIUS_WEB_ROOT is shared by every generated project: an already-set env var takes
+# precedence, otherwise it comes from generated/.generation-info.
+if [ -z "${SIRIUS_WEB_ROOT:-}" ]; then
+  SIRIUS_WEB_ROOT="$(grep '^SIRIUS_WEB_ROOT=' "$GENERATION_INFO" | cut -d= -f2-)"
+fi
 
 # sirius-web structure has pom.xml in packages/, not at the repo root
 if [ -z "${SIRIUS_WEB_ROOT:-}" ] || [ ! -f "$SIRIUS_WEB_ROOT/packages/pom.xml" ]; then
@@ -51,19 +81,12 @@ echo ""
 echo "Installing: $GROUP_ID:$PROJECT_NAME:$VERSION"
 echo ""
 
-# Step 1: Build and install to local Maven repository
-echo "Step 1: Building and installing generated modules..."
-# cd "$GENERATED_BACKEND/.."
-# mvn -DskipTests clean install
-## echo "✅ Generated modules installed to local Maven repository"
-## echo ""
-
-# Step 2: Copy the metamodel modules into their own packages/<PROJECT_NAME>/backend/ folder,
+# Copy the metamodel modules into their own packages/<PROJECT_NAME>/backend/ folder,
 # mirroring how packages/<example>/backend/ hosts <example>-metamodel and <example>-metamodel-edit.
 SIRIUS_WEB_PACKAGES="$SIRIUS_WEB_ROOT/packages"
 METAMODEL_ROOT="$SIRIUS_WEB_PACKAGES/${PROJECT_NAME}/backend"
 
-echo "Step 2: Copying metamodel modules to Sirius Web..."
+echo "Copying metamodel modules to Sirius Web..."
 echo "  Source: $GENERATED_BACKEND"
 echo "  Target: $METAMODEL_ROOT"
 echo ""
@@ -107,7 +130,7 @@ cat > "$METAMODEL_ROOT/pom.xml" << EOF
 EOF
 
 echo ""
-echo "Step 3: Registering ${PROJECT_NAME}/backend in packages/pom.xml..."
+echo "Registering ${PROJECT_NAME}/backend in packages/pom.xml..."
 
 PACKAGES_POM="$SIRIUS_WEB_PACKAGES/pom.xml"
 if grep -q "<module>${PROJECT_NAME}/backend</module>" "$PACKAGES_POM"; then
@@ -117,7 +140,7 @@ else
   sed -i "/<module>sirius-web\/backend<\/module>/a\ \t\t<module>${PROJECT_NAME}/backend</module>" "$PACKAGES_POM"
 fi
 
-# Step 4: Copy the starter module into packages/starters/backend/, alongside sirius-components-flow-starter
+#Copy the starter module into packages/starters/backend/, alongside sirius-components-flow-starter
 SIRIUS_WEB_STARTERS="$SIRIUS_WEB_PACKAGES/starters/backend"
 if [ ! -d "$SIRIUS_WEB_STARTERS" ]; then
   echo "Error: sirius-web starters directory not found at $SIRIUS_WEB_STARTERS"
@@ -125,7 +148,7 @@ if [ ! -d "$SIRIUS_WEB_STARTERS" ]; then
 fi
 
 echo ""
-echo "Step 4: Copying starter module to Sirius Web..."
+echo "Copying starter module to Sirius Web..."
 echo "  Source: $GENERATED_BACKEND/$PROJECT_NAME"
 echo "  Target: $SIRIUS_WEB_STARTERS"
 echo ""
@@ -148,10 +171,15 @@ if [ -d "$GENERATED_BACKEND/$PROJECT_NAME" ]; then
 \		<version>2026.7.3</version>\
 \		<relativePath>../../../releng/backend/sirius-web-parent</relativePath>\
 \	</parent>' "$STARTER_POM"
+
+  # These come along for free via the cp -r above (served globally by Sirius Web
+  # under /project-templates/** and /icons/**), just confirm they made it across.
+  [ -f "$TARGET_DIR/src/main/resources/project-templates/${PROJECT_NAME}-Template.png" ] && echo "  • Project template icon: project-templates/${PROJECT_NAME}-Template.png"
+  [ -d "$TARGET_DIR/src/main/resources/icons/${PROJECT_NAME}" ] && echo "  • Example element icon(s): icons/${PROJECT_NAME}/"
 fi
 
 echo ""
-echo "Step 5: Registering starter module in packages/starters/backend/pom.xml..."
+echo "Registering starter module in packages/starters/backend/pom.xml..."
 
 STARTER_PARENT_POM="$SIRIUS_WEB_STARTERS/pom.xml"
 MODULE_NAME="${PROJECT_NAME}-starter"
@@ -166,7 +194,7 @@ else
 fi
 
 echo ""
-echo "Step 6: Registering ${PROJECT_NAME} as a dependency of the Sirius Web application..."
+echo "Registering ${PROJECT_NAME} as a dependency of the Sirius Web application..."
 
 SIRIUS_WEB_APP_POM="$SIRIUS_WEB_ROOT/packages/sirius-web/backend/sirius-web/pom.xml"
 if [ ! -f "$SIRIUS_WEB_APP_POM" ]; then
@@ -190,20 +218,14 @@ else
 fi
 
 echo ""
-echo "Step 7: Building the metamodel and starter modules..."
-# cd "$METAMODEL_ROOT"
-# mvn -DskipTests clean install
-# cd "$SIRIUS_WEB_STARTERS"
-# mvn -DskipTests clean install
-
-echo ""
 echo "✅ Installation complete!"
 echo ""
 echo "The generated starter '$PROJECT_NAME' has been integrated into Sirius Web."
 echo ""
 echo "Next steps:"
-echo "1. Build the full Sirius Web backend:"
-echo "   cd $SIRIUS_WEB_ROOT"
-echo "   mvn clean package"
+echo "1. Stop Sirius Web if it's running."
+echo "2. Build the full Sirius Web backend in packages folder:"
+echo "   cd $SIRIUS_WEB_ROOT/packages"
+echo "   mvn clean install -DskipTests"
 echo ""
-echo "2. The $PROJECT_NAME extension will be available in your Sirius Web instance."
+echo "3. The $PROJECT_NAME extension will be available in your Sirius Web instance."

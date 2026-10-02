@@ -4,14 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEMPLATE_DIR="$ROOT_DIR/template"
 
-# Reuse the sirius-web path from the previously generated (current) project, so repeated
-# runs (e.g. after a restart) don't require retyping it.
-CURRENT_MARKER="$ROOT_DIR/generated/.current-project"
-if [ -z "${SIRIUS_WEB_ROOT:-}" ] && [ -f "$CURRENT_MARKER" ]; then
-  PROJECT_INFO="$ROOT_DIR/generated/$(cat "$CURRENT_MARKER")/.project-info"
-  if [ -f "$PROJECT_INFO" ]; then
-    SIRIUS_WEB_ROOT="$(grep '^SIRIUS_WEB_ROOT=' "$PROJECT_INFO" | cut -d= -f2-)"
-  fi
+# Reuse the sirius-web path from previous runs (it's the same for every generated project), so
+# repeated runs (e.g. after a restart) don't require retyping it.
+GENERATION_INFO="$ROOT_DIR/generated/.generation-info"
+if [ -z "${SIRIUS_WEB_ROOT:-}" ] && [ -f "$GENERATION_INFO" ]; then
+  SIRIUS_WEB_ROOT="$(grep '^SIRIUS_WEB_ROOT=' "$GENERATION_INFO" | cut -d= -f2-)"
 fi
 
 read -p "Project name [my_extension]: " PROJECT_NAME
@@ -67,8 +64,8 @@ fi
 
 # Switching the "current" project away from a different previous one: offer to remove it
 # (and its sirius-web installation, via clean.sh) so stale extensions don't linger.
-if [ -f "$CURRENT_MARKER" ]; then
-  PREVIOUS_PROJECT="$(cat "$CURRENT_MARKER")"
+if [ -f "$GENERATION_INFO" ]; then
+  PREVIOUS_PROJECT="$(grep '^PROJECT_NAME=' "$GENERATION_INFO" | cut -d= -f2-)"
   PREVIOUS_DIR="$ROOT_DIR/generated/$PREVIOUS_PROJECT"
   if [ "$PREVIOUS_PROJECT" != "$PROJECT_NAME" ] && [ -d "$PREVIOUS_DIR" ]; then
     read -rp "Previous current project '$PREVIOUS_PROJECT' found. Remove generated/$PREVIOUS_PROJECT? [y/N] " REMOVE_PREVIOUS
@@ -84,17 +81,21 @@ fi
 mkdir -p "$ROOT_DIR/generated"
 cp -R "$TEMPLATE_DIR" "$TARGET_DIR"
 
-# Persist the chosen values so install.sh can reuse them without re-deriving anything
+# Persist the chosen values so install.sh can reuse them without re-deriving anything.
+# SIRIUS_WEB_ROOT isn't repeated here, it's the same for every project and lives in
+# generated/.generation-info instead.
 cat > "$TARGET_DIR/.project-info" << EOF
 PROJECT_NAME=$PROJECT_NAME
 GROUP_ID=$GROUP_ID
 VERSION=$VERSION
-SIRIUS_WEB_ROOT=$SIRIUS_WEB_ROOT
 EOF
 
-# Record this as the current project so install.sh always installs it, without
-# having to guess among any other projects left under generated/.
-echo "$PROJECT_NAME" > "$CURRENT_MARKER"
+# Record the current project + the shared sirius-web path so install.sh always installs
+# the right project without having to guess among any others left under generated/.
+cat > "$GENERATION_INFO" << EOF
+PROJECT_NAME=$PROJECT_NAME
+SIRIUS_WEB_ROOT=$SIRIUS_WEB_ROOT
+EOF
 
 PACKAGE_PATH="$(echo "$PACKAGE_BASE" | tr '.' '/')"
 MODEL_PACKAGE_PATH="$(echo "$MODEL_PACKAGE" | tr '.' '/')"
@@ -124,6 +125,18 @@ if [ -d "$TARGET_DIR/backend/${PROJECT_NAME}/src/main/java/${SERVICE_PACKAGE_PAT
   done
 fi
 
+# Project template icon (shown in Sirius Web's "new project" dialog)
+if [ -f "$TARGET_DIR/backend/${PROJECT_NAME}/src/main/resources/project-templates/__PROJECT_NAME__-Template.png" ]; then
+  mv "$TARGET_DIR/backend/${PROJECT_NAME}/src/main/resources/project-templates/__PROJECT_NAME__-Template.png" \
+     "$TARGET_DIR/backend/${PROJECT_NAME}/src/main/resources/project-templates/${PROJECT_NAME}-Template.png"
+fi
+
+# Example model element icon, served by Sirius Web under /icons/<project>/Element.svg
+if [ -d "$TARGET_DIR/backend/${PROJECT_NAME}/src/main/resources/icons/__PROJECT_NAME__" ]; then
+  mv "$TARGET_DIR/backend/${PROJECT_NAME}/src/main/resources/icons/__PROJECT_NAME__" \
+     "$TARGET_DIR/backend/${PROJECT_NAME}/src/main/resources/icons/${PROJECT_NAME}"
+fi
+
 if [ -d "$TARGET_DIR/backend/__PROJECT_NAME__-metamodel" ]; then
   mv "$TARGET_DIR/backend/__PROJECT_NAME__-metamodel" "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel"
 fi
@@ -144,16 +157,13 @@ if [ -f "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/__MODEL_NAME__.aird
   mv "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/__MODEL_NAME__.aird" "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/${MODEL_NAME}.aird"
 fi
 
-if [ -f "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/example.ecore" ]; then
-  mv "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/example.ecore" "$TARGET_DIR/backend/${PROJECT_NAME}-metamodel/model/${MODEL_NAME}.ecore"
-fi
-
-if [ -f "$TARGET_DIR/scripts/install.sh" ]; then
-  chmod +x "$TARGET_DIR/scripts/install.sh"
-fi
-if [ -f "$TARGET_DIR/scripts/generate.sh" ]; then
-  chmod +x "$TARGET_DIR/scripts/generate.sh"
-fi
-
 echo "Generated project: $TARGET_DIR"
-echo "Next step: cd $TARGET_DIR && ./scripts/install.sh"
+# install.sh always installs the current project (generated/.generation-info), so it's
+# run from this template repo, not from inside the generated project itself.
+echo "Next steps:"
+echo "1. Open eclipse import the generated project."
+echo "2. Create your DSL using ecore modeling tools."
+echo "3. Generate java sourcecode using generator model."
+echo "4. Run installation script to install generated code:"
+echo "   ./scripts/install.sh"
+echo "5. Build and restart Sirius Web:"
